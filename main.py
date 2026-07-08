@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-URL = "https://www.elenemigos.com/tag/onlinefix"
+URL = "https://www.elenemigos.com/tag/onlinefix?output=1"
 
 BASE_URL = "https://www.elenemigos.com"
 
