@@ -52,10 +52,11 @@ def get_html():
 
         page.goto(
             URL,
-            wait_until="networkidle",
+            wait_until="domcontentloaded",
             timeout=60000
         )
 
+        page.wait_for_timeout(5000)
 
         # Esperar que carguen las tarjetas
         try:
