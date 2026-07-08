@@ -34,13 +34,20 @@ headers = {
 }
 
 
-html = requests.get(URL, headers=headers).text
+response = requests.get(URL, headers=headers)
+
+print("STATUS:", response.status_code)
+print("HTML LENGTH:", len(response.text))
+print(response.text[:1000])
+
+html = response.text
 
 soup = BeautifulSoup(html, "lxml")
 
 
 cards = soup.select("div.game-card")
 
+print("CARDS:", len(cards))
 
 if not cards:
     print("No encontré juegos")
