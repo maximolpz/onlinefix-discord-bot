@@ -22,6 +22,7 @@ def get_seen():
         return set(f.read().splitlines())
 
 
+
 def save_seen(seen):
 
     with open(SEEN_FILE, "w", encoding="utf8") as f:
@@ -38,17 +39,23 @@ def get_html():
             headless=True
         )
 
+
         page = browser.new_page(
+            viewport={
+                "width": 1920,
+                "height": 1080
+            },
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 "
                 "(KHTML, like Gecko) "
-                "Chrome/120.0 Safari/537.36"
+                "Chrome/120.0.0.0 Safari/537.36"
             )
         )
 
 
         print("Abriendo página...")
+
 
         page.goto(
             URL,
@@ -56,19 +63,41 @@ def get_html():
             timeout=60000
         )
 
-        page.wait_for_timeout(5000)
 
-        # Esperar que carguen las tarjetas
-        try:
-            page.wait_for_selector(
-                "div.game-card",
-                timeout=30000
-            )
-        except:
-            print("No apareció game-card")
+        # Esperar carga de scripts / Cloudflare
+        page.wait_for_timeout(10000)
+
+
+        print(
+            "Título:",
+            page.title()
+        )
+
+
+        print(
+            "URL actual:",
+            page.url
+        )
 
 
         html = page.content()
+
+
+        print(
+            "HTML tamaño:",
+            len(html)
+        )
+
+
+        if "Just a moment" in html:
+            print("Sigue en Cloudflare")
+
+
+        # Captura para debug
+        page.screenshot(
+            path="debug.png",
+            full_page=True
+        )
 
 
         browser.close()
@@ -141,7 +170,11 @@ def main():
 
 
     if not cards:
-        print("No encontré juegos.")
+
+        print(
+            "No encontré juegos."
+        )
+
         return
 
 
@@ -160,7 +193,6 @@ def main():
 
     for card in cards:
 
-
         a = card.find("a")
 
 
@@ -178,7 +210,10 @@ def main():
 
     if not new_posts:
 
-        print("No hay novedades.")
+        print(
+            "No hay novedades."
+        )
+
         return
 
 
@@ -190,8 +225,6 @@ def main():
 
 
 
-    # Publicar del más antiguo al más nuevo
-
     for card in reversed(new_posts):
 
 
@@ -200,7 +233,13 @@ def main():
         link = BASE_URL + a["href"]
 
 
-        titulo = card.find("h2").text.strip()
+        titulo = card.find("h2")
+
+        if titulo:
+            titulo = titulo.text.strip()
+        else:
+            titulo = "Sin título"
+
 
 
         descripcion = ""
@@ -243,7 +282,9 @@ def main():
     save_seen(seen)
 
 
-    print("Historial actualizado.")
+    print(
+        "Historial actualizado."
+    )
 
 
 
