@@ -2,271 +2,124 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-
-URL = "https://www.elenemigos.com/tag/onlinefix?output=1"
-
-BASE_URL = "https://www.elenemigos.com"
+URL = "https://onlinefix-proxy.maximonahuellopez.workers.dev/"
 
 WEBHOOK = os.getenv("DISCORD_WEBHOOK")
 
 SEEN_FILE = "seen_posts.txt"
 
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 "
-        "(KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "Accept": (
-        "text/html,application/xhtml+xml,"
-        "application/xml;q=0.9,image/webp,*/*;q=0.8"
-    ),
-    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-    "Referer": "https://www.google.com/",
-    "Connection": "keep-alive"
-}
-
-
-
-def get_seen():
-
+def load_seen():
     if not os.path.exists(SEEN_FILE):
         return set()
 
-    with open(SEEN_FILE, "r", encoding="utf-8") as f:
-        return set(
-            line.strip()
-            for line in f.readlines()
-            if line.strip()
-        )
-
+    with open(SEEN_FILE, "r", encoding="utf8") as f:
+        return set(line.strip() for line in f if line.strip())
 
 
 def save_seen(seen):
-
-    with open(SEEN_FILE, "w", encoding="utf-8") as f:
-        for item in sorted(seen):
-            f.write(item + "\n")
-
+    with open(SEEN_FILE, "w", encoding="utf8") as f:
+        for url in sorted(seen):
+            f.write(url + "\n")
 
 
-def get_page():
-
-    print("Descargando página...")
-
-
-    response = requests.get(
-        URL,
-        headers=HEADERS,
-        timeout=30
-    )
-
-
-    print(
-        "STATUS:",
-        response.status_code
-    )
-
-
-    print(
-        "HTML LENGTH:",
-        len(response.text)
-    )
-
-
-    if response.status_code != 200:
-        print(
-            response.text[:300]
-        )
-        return None
-
-
-    return response.text
-
-
-
-def send_discord(
-    titulo,
-    url,
-    descripcion,
-    imagen
-):
+def send_discord(title, url, description, image):
 
     payload = {
         "embeds": [
             {
-                "title": titulo,
+                "title": title,
                 "url": url,
-                "description": descripcion,
-                "color": 65280,
+                "description": description,
+                "color": 5763719,
                 "image": {
-                    "url": imagen
+                    "url": image
                 },
                 "footer": {
-                    "text": "Nuevo juego OnlineFix"
+                    "text": "Nuevo juego OnlineFix - ElEnemigos"
                 }
             }
         ]
     }
 
+    r = requests.post(WEBHOOK, json=payload)
 
-    response = requests.post(
-        WEBHOOK,
-        json=payload,
-        timeout=30
-    )
+    print("Discord:", r.status_code)
 
-
-    print(
-        "Discord:",
-        response.status_code
-    )
-
-
-    return response.status_code == 204
-
+    return r.status_code == 204
 
 
 def main():
 
-    if not WEBHOOK:
-        print(
-            "ERROR: Falta DISCORD_WEBHOOK"
-        )
-        return
+    print("Descargando página...")
 
+    html = requests.get(
+        URL,
+        headers={
+            "User-Agent": "Mozilla/5.0"
+        },
+        timeout=30
+    ).text
 
+    soup = BeautifulSoup(html, "lxml")
 
-    html = get_page()
+    cards = soup.select("div.game-card")
 
-
-    if not html:
-        return
-
-
-
-    soup = BeautifulSoup(
-        html,
-        "lxml"
-    )
-
-
-    cards = soup.select(
-        "div.game-card"
-    )
-
-
-    print(
-        "Cards encontradas:",
-        len(cards)
-    )
-
+    print("Cards encontradas:", len(cards))
 
     if not cards:
-        print(
-            "No encontré juegos."
-        )
+        print("No encontré juegos.")
         return
 
+    seen = load_seen()
 
+    nuevos = 0
 
-    seen = get_seen()
-
-
-    nuevos = []
-
-
-
-    for card in cards:
+    # Recorremos del más viejo al más nuevo
+    for card in reversed(cards):
 
         a = card.find("a")
 
         if not a:
             continue
 
+        link = "https://www.elenemigos.com" + a["href"]
 
-        link = BASE_URL + a.get("href")
+        if link in seen:
+            continue
 
+        titulo = ""
 
-        if link not in seen:
-            nuevos.append(card)
+        h2 = card.find("h2")
+        if h2:
+            titulo = h2.get_text(strip=True)
 
+        descripcion = ""
 
+        p = card.find("p")
+        if p:
+            descripcion = p.get_text(strip=True)
 
-    print(
-        "Nuevos:",
-        len(nuevos)
-    )
+        imagen = ""
 
+        img = card.find("img")
+        if img:
+            imagen = img.get("src", "")
 
+        print("Nuevo:", titulo)
 
-    if not nuevos:
-
-        print(
-            "No hay novedades."
-        )
-        return
-
-
-
-    for card in reversed(nuevos):
-
-
-        a = card.find("a")
-
-        link = BASE_URL + a["href"]
-
-
-
-        titulo = card.find("h2")
-
-        if titulo:
-            titulo = titulo.text.strip()
-        else:
-            titulo = "Sin título"
-
-
-
-        descripcion = card.find("p")
-
-        if descripcion:
-            descripcion = descripcion.text.strip()
-        else:
-            descripcion = ""
-
-
-
-        imagen = card.find("img")
-
-        if imagen:
-            imagen = imagen.get("src", "")
-        else:
-            imagen = ""
-
-
-
-        enviado = send_discord(
+        if send_discord(
             titulo,
             link,
             descripcion,
             imagen
-        )
-
-
-        if enviado:
+        ):
             seen.add(link)
-
-
+            nuevos += 1
 
     save_seen(seen)
 
-
-    print(
-        "Historial actualizado."
-    )
-
+    print("Nuevos enviados:", nuevos)
 
 
 if __name__ == "__main__":
